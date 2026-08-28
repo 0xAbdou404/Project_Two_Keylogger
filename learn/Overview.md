@@ -1,5 +1,4 @@
 # Keylogger
----
 ## What This Is
 ---
 A cross-platform keylogger that captures keyboard events, tracks active windows, and delivers logs remotely via webhooks, Build with Python using pynput for event capture, this demonstrates how malware monitors user activity and exxfiltrates data without detection
