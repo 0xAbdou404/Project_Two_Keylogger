@@ -29,15 +29,6 @@ uv sync
 python keylogger.py
 ```
 
-Press **F9** to toggle capture on/off. Press **Ctrl+C** to stop.
-
-**Disclaimer:** For authorized security research and education only. Unauthorized use of keyloggers is illegal. Always obtain explicit written consent before monitoring any system you do not own.
-
-> [!TIP]
-> This project uses [`just`](https://github.com/casey/just) as a command runner. Type `just` to see all available commands.
->
-> Install: `curl -sSf https://just.systems/install.sh | bash -s -- --to ~/.local/bin`
-
 # learn
 | Module | Topic |
 |--------|-------|
