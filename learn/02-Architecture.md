@@ -203,7 +203,7 @@ Layers enable independent modification. We can swap LogManager for a database wr
 *What it is*: The Observer pattern allows objects to subscribe to events and react when they occur. The subject (keyboard) notifies observers (our callback) without tight coupling.
 
 *Where we use it*: pynput's keyboard.Listener implements the Observer pattern (keylogger.py:505-506):
-```
+```python
 self.listener = keyboard.Listener(on_press=self._on_press)
 self.listener.start()
 Our _on_press method is the observer callback. When the OS delivers a keyboard event, pynput notifies us by calling this function.
@@ -218,7 +218,7 @@ Our _on_press method is the observer callback. When the OS delivers a keyboard e
 *What it is*: Multiple threads accessing shared data requires synchronization primitives like locks to prevent race conditions.
 
 *Where we use it*: LogManager uses a lock around file operations (keylogger.py:252-255):
-```
+```python
 def write_event(self, event: KeyEvent) -> None:
     with self._lock:
         self._file.write(event.to_log_string() + '\n')
@@ -226,7 +226,7 @@ def write_event(self, event: KeyEvent) -> None:
         self._check_rotation()
 ```
 WebhookDelivery uses a lock with a buffer swap pattern (keylogger.py:315-324). The key insight is that delivery happens outside the lock:
-```
+```python
 def add_event(self, event: KeyEvent) -> None:
     if not self.enabled:
         return
@@ -249,7 +249,7 @@ def add_event(self, event: KeyEvent) -> None:
 *What it is*: Dataclasses provide a clean syntax for creating classes that primarily store data. Making them immutable (frozen) prevents accidental modification.
 
 *Where we use it*: KeyEvent represents a keystroke (keylogger.py:123-152):
-```
+```python
 @dataclass
 class KeyEvent:
     timestamp: datetime
@@ -258,7 +258,7 @@ class KeyEvent:
     key_type: KeyType = KeyType.CHAR
 ```
 KeyloggerConfig stores configuration (keylogger.py:107-120):
-```
+```python
 @dataclass
 class KeyloggerConfig:
     log_dir: Path = Path.home() / ".keylogger_logs"
