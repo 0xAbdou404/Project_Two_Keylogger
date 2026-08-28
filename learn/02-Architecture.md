@@ -66,31 +66,38 @@ Step by step walkthrough of what happens when a user presses a key:
 ```
 1. OS Keyboard Event → pynput Listener
    User presses 'a' key, OS delivers envent to all registered pynput captures event and triggers our callback
+
 2. Listener → Keylogger._on_press() (keylogger.py:428)
    Callback receives Key or KeyCode object
    Check if it's the toggle key (dynamically reads config toggle key) → pause/resume if so 
    Checks if logging is active → early return if paused
+
 3. Keylogger → WindowTracker.get_active_window() (Keylogger.py:390)
    Calls platform-specific code to get active window
    Caches result for config.window_check_interval seconds (default 0.5) to avoid excessive API calls
    Returns window title like "Chrome - Gmail" or None
+
 4. Keylogger → _process_key() (keylogger.py:406)
    Coverts Key/KeyCode to string representation
    Looks up special keys via module-level SPECIAL_KEYS constant
    Maps specail keys (Enter→"[Enter]", Space→"[Space]")
    Classsifies key type (CHAR, SPECIAL, UNKOWN)
+
 5. Keylogger → Creates KeyEvent (keylogger.py:450)
    Bundles timestamp, key string, window title, and key type Creates dataclass instance
+
 6. Keylogger → LogManager.write_event() (Keylogger.py: 248)
    Acquires lock for thread safety
    Formats event to log string: "[2025-01-31 14:30:22][Chrome] a"
    Writes to current log file via direct file I/O (self._file.write + flush)
    Checks file size and rotates if needed
+
 7. Keylogger → WebhookDelivery.add_event() (keylogger.py:308)
    Add event to buffer array under lock
    Checks if buffer reached reached batch size (default 50)
    If full, swaps the buffer (replaces with empty list) under lock
    Delivers the batch OUTSIDE the lock via HTTP POST
+   
 ```
 Example with code references:
 ```
