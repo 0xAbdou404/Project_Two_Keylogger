@@ -1,14 +1,14 @@
 # Keylogger
 ## What This Is
----
+
 A cross-platform keylogger that captures keyboard events, tracks active windows, and delivers logs remotely via webhooks, Build with Python using pynput for event capture, this demonstrates how malware monitors user activity and exxfiltrates data without detection
 
 ## Why This Matter
----
+
 Keyloggers are one of the oldest and most effective attack vectors. They've been used in major breaches including the 2013 Target breach where attackers used keylogging malware on point-of-sale systems to steal 40 million credit cards.
 
 ## What You'll Learn
----
+
 This project teaches you how keyboard capture malware works under the hood. By building it yourself, you'll understand:
 #### Security Concepts:
 - Keyboard event interception: HOw operating systems expose keyboard events to applications and why this creates a security boundary that's difficult to protect
