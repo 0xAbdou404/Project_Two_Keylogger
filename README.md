@@ -15,6 +15,6 @@
 # learn
 | Module | Topic |
 |--------|-------|
-| [00 - Overview](learn/00-OVERVIEW.md) | Prerequisites and quick start |
-| [01 - Concepts](learn/01-CONCEPTS.md) | Security theory and real-world breaches |
+| [00 - Overview](learn/Overview.md) | Prerequisites and quick start |
+| [01 - Concepts](learn/Concept.md) | Security theory and real-world breaches |
 | [02 - Architecture](learn/02-ARCHITECTURE.md) | System design and data flow |
