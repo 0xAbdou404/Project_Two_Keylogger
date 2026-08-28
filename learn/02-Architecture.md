@@ -97,7 +97,7 @@ Step by step walkthrough of what happens when a user presses a key:
    Checks if buffer reached reached batch size (default 50)
    If full, swaps the buffer (replaces with empty list) under lock
    Delivers the batch OUTSIDE the lock via HTTP POST
-   
+
 ```
 Example with code references:
 ```
@@ -154,3 +154,121 @@ Step by step for when log file grows too large:
 6. Next write_event() call → Goes to new file
    Old file preserved with all historical keystrokes
 ```
+## Layer Separation
+The architecture has a clear separation between concerns:
+```
+┌─────────────────────────────────────────────────┐
+│           Application Layer                     │
+│  - Keylogger main class                         │
+│  - Lifecycle management (start/stop)            │
+│  - Event processing pipeline                    │
+└─────────────────┬───────────────────────────────┘
+                  │
+┌─────────────────┴───────────────────────────────┐
+│           Service Layer                         │
+│  - LogManager (persistence)                     │
+│  - WebhookDelivery (exfiltration)               │
+│  - WindowTracker (context gathering)            │
+└─────────────────┬───────────────────────────────┘
+                  │
+┌─────────────────┴───────────────────────────────┐
+│           Data Layer                            │
+│  - KeyEvent (event representation)              │
+│  - KeyloggerConfig (configuration)              │
+│  - KeyType (enum classification)                │
+└─────────────────────────────────────────────────┘
+```
+### Why Layers?
+Layers enable independent modification. We can swap LogManager for a database writer without touching Keylogger. We can add new exfiltration methods alongside WebhookDelivery. Testing is easier since we can mock service layer components.
+
+### What Lives Where
+#### Application Layer:
+
+- Files: Main Keylogger class (keylogger.py:373-533)
+- Imports: Can import from service and data layers
+- Forbidden: Direct file I/O (delegates to LogManager), HTTP requests (delegates to WebhookDelivery)
+#### Service Layer:
+
+- Files: LogManager (keylogger.py:222-296), WebhookDelivery (keylogger.py:298-371), WindowTracker (keylogger.py:155-219)
+- Imports: Can import data layer, should not import application layer
+- Forbidden: Knowledge of Keylogger implementation details, accessing pynput directly
+#### Data Layer:
+
+- Files: KeyEvent (keylogger.py:123-152), KeyloggerConfig (keylogger.py:107-120), KeyType (keylogger.py:98-104)
+- Imports: Only standard library (datetime, pathlib, enum)
+- Forbidden: Business logic, I/O operations, external dependencies
+
+## Design Patterns
+### Observer Pattern (Event-Driven Architecture)
+*What it is*: The Observer pattern allows objects to subscribe to events and react when they occur. The subject (keyboard) notifies observers (our callback) without tight coupling.
+
+*Where we use it*: pynput's keyboard.Listener implements the Observer pattern (keylogger.py:505-506):
+```
+self.listener = keyboard.Listener(on_press=self._on_press)
+self.listener.start()
+Our _on_press method is the observer callback. When the OS delivers a keyboard event, pynput notifies us by calling this function.
+```
+*Why we chose it*: Observer pattern is ideal for event-driven systems where we don't control the timing of events. We can't poll the keyboard (too slow, high CPU), we need to react immediately when keys are pressed. The pattern also decouples us from pynput's implementation details.
+
+#### Trade-offs:
+
+- Pros: Clean separation between event source and handler, enables real-time processing, scales to multiple event types (we could add mouse events)
+- Cons: Callback runs in pynput's thread so we need careful synchronization, harder to debug than sequential code, callback failures can crash the listener
+### Thread Safety with Locks
+*What it is*: Multiple threads accessing shared data requires synchronization primitives like locks to prevent race conditions.
+
+*Where we use it*: LogManager uses a lock around file operations (keylogger.py:252-255):
+```
+def write_event(self, event: KeyEvent) -> None:
+    with self._lock:
+        self._file.write(event.to_log_string() + '\n')
+        self._file.flush()
+        self._check_rotation()
+```
+WebhookDelivery uses a lock with a buffer swap pattern (keylogger.py:315-324). The key insight is that delivery happens outside the lock:
+```
+def add_event(self, event: KeyEvent) -> None:
+    if not self.enabled:
+        return
+    batch: list[KeyEvent] | None = None
+    with self.buffer_lock:
+        self.event_buffer.append(event)
+        if len(self.event_buffer) >= self.config.webhook_batch_size:
+            batch = self.event_buffer
+            self.event_buffer = []
+    if batch:
+        self._deliver_batch(batch)
+```
+*Why we chose it*: The pynput callback runs in a separate thread from our main program. Without locks, simultaneous file writes could corrupt the log file. Similarly, the event buffer could have race conditions if accessed from multiple threads. The buffer swap pattern in WebhookDelivery minimizes lock hold time by doing the slow network I/O outside the lock.
+
+#### Trade-offs:
+
+- Pros: Prevents data corruption, ensures consistency, simple to reason about (lock, access, unlock), buffer swap minimizes contention during network delivery
+- Cons: Potential performance bottleneck (though keyboard events are slow enough this doesn't matter), risk of deadlock if locks acquired in wrong order (we only use one lock per component so this isn't an issue)
+### Immutable Data with Dataclasses
+*What it is*: Dataclasses provide a clean syntax for creating classes that primarily store data. Making them immutable (frozen) prevents accidental modification.
+
+*Where we use it*: KeyEvent represents a keystroke (keylogger.py:123-152):
+```
+@dataclass
+class KeyEvent:
+    timestamp: datetime
+    key: str
+    window_title: str | None = None
+    key_type: KeyType = KeyType.CHAR
+```
+KeyloggerConfig stores configuration (keylogger.py:107-120):
+```
+@dataclass
+class KeyloggerConfig:
+    log_dir: Path = Path.home() / ".keylogger_logs"
+    log_file_prefix: str = "keylog"
+    max_log_size_mb: float = 5.0
+    # ... more fields
+```
+*Why we chose it*: Dataclasses reduce boilerplate (no need to write __init__, __repr__, etc). Type hints make the data structure self-documenting. Immutability prevents bugs where events get modified after creation.
+
+#### Trade-offs:
+
+- Pros: Less code, better type safety, automatic equality comparison, clear data structure
+- Cons: Slightly less flexible than regular classes, can't be modified after creation (though this is intentional)
