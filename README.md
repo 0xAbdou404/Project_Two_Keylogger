@@ -35,3 +35,5 @@ python keylogger.py
 | [00-Overview](learn/00-Overview.md) | Prerequisites and quick start |
 | [01-Concept](learn/01-Concept.md) | Security theory and real-world breaches |
 | [02-Architecture](learn/02-Architecture.md) | System design and data flow |
+
+>Important!!: Just for academic knowledge 
