@@ -333,7 +333,7 @@ class Keylooger:
         """Callback for key press events"""
 
         if key == self.config.toggle_key:
-            self._toggle_logging()
+            self.toggle_logging()
             return
 
         if not self.is_logging.is_set():
